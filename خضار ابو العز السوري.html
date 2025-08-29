@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>برنامج محل الخضار والفواكه</title>
+  <style>
+    body {
+      direction: rtl;
+      font-family: "Tahoma", sans-serif;
+      background: #f0f2f5;
+      margin: 0; padding: 0;
+    }
+    header {
+      background: #2b7a0b;
+      color: #fff;
+      padding: 20px;
+      text-align: center;
+    }
+    header img {
+      max-height: 60px;
+      display: block;
+      margin: 0 auto 10px auto;
+    }
+    nav {
+      display: flex;
+      justify-content: center;
+      background: #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    nav button {
+      flex: 1;
+      padding: 15px;
+      border: none;
+      background: #fff;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    nav button.active {
+      background: #2b7a0b;
+      color: #fff;
+      font-weight: bold;
+    }
+    .container {
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      display: none;
+    }
+    .container.active { display: block; }
+    h2 { margin-top: 0; color: #2b7a0b; }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0 15px 0;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+    button {
+      background: #2b7a0b;
+      color: #fff;
+      font-size: 16px;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover { background: #226207; }
+    ul { list-style: none; padding: 0; }
+    li {
+      background: #eefbea;
+      padding: 8px;
+      margin: 5px 0;
+      border-radius: 5px;
+    }
+    .loss { background: #fdeaea !important; }
+    .result {
+      background: #fafafa;
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <img id="logo" src="" alt="لوغو المحل" style="display:none;">
+    <h1>📊 برنامج محل الخضار والفواكه</h1>
+    <input type="file" id="logoInput" accept="image/*">
+  </header>
+
+  <nav>
+    <button class="active" onclick="showTab('daily')">التقارير اليومية</button>
+    <button onclick="showTab('monthly')">التقارير الشهرية</button>
+    <button onclick="showTab('yearly')">التقارير السنوية</button>
+  </nav>
+
+  <!-- التقارير اليومية -->
+  <div id="daily" class="container active">
+    <h2>🛒 المشتريات</h2>
+    <input type="text" id="buyItem" placeholder="اسم المنتج">
+    <input type="number" id="buyAmount" placeholder="المبلغ (جنيه)">
+    <button onclick="addBuy()">➕ إضافة</button>
+    <ul id="buyList"></ul>
+
+    <h2>💰 المبيعات</h2>
+    <input type="text" id="sellItem" placeholder="اسم المنتج">
+    <input type="number" id="sellAmount" placeholder="المبلغ (جنيه)">
+    <button onclick="addSell()">➕ إضافة</button>
+    <ul id="sellList"></ul>
+
+    <h2>🥬 الخضار الزائد</h2>
+    <input type="text" id="extraItem" placeholder="اسم المنتج">
+    <input type="number" id="extraAmount" placeholder="الكمية">
+    <button onclick="addExtra()">➕ إضافة</button>
+    <ul id="extraList"></ul>
+
+    <button onclick="endDay()">📅 إنهاء اليوم</button>
+    <div id="result"></div>
+  </div>
+
+  <!-- التقارير الشهرية -->
+  <div id="monthly" class="container">
+    <h2>📆 تقرير شهري</h2>
+    <div id="monthlyReport"></div>
+  </div>
+
+  <!-- التقارير السنوية -->
+  <div id="yearly" class="container">
+    <h2>📈 تقرير سنوي</h2>
+    <div id="yearlyReport"></div>
+  </div>
+
+  <script>
+    let buys = JSON.parse(localStorage.getItem("buys")) || [];
+    let sells = JSON.parse(localStorage.getItem("sells")) || [];
+    let extras = JSON.parse(localStorage.getItem("extras")) || [];
+    let history = JSON.parse(localStorage.getItem("history")) || []; // تخزين التقارير اليومية
+    let logoData = localStorage.getItem("logoData");
+
+    if (logoData) {
+      document.getElementById("logo").src = logoData;
+      document.getElementById("logo").style.display = "block";
+    }
+
+    document.getElementById("logoInput").addEventListener("change", function(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          document.getElementById("logo").src = e.target.result;
+          document.getElementById("logo").style.display = "block";
+          localStorage.setItem("logoData", e.target.result);
+        }
+        reader.readAsDataURL(file);
+      }
+    });
+
+    function showTab(tab) {
+      document.querySelectorAll('.container').forEach(c => c.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+      document.getElementById(tab).classList.add('active');
+      document.querySelector(`nav button[onclick="showTab('${tab}')"]`).classList.add('active');
+      if(tab === "monthly") generateMonthlyReport();
+      if(tab === "yearly") generateYearlyReport();
+    }
+
+    function saveData() {
+      localStorage.setItem("buys", JSON.stringify(buys));
+      localStorage.setItem("sells", JSON.stringify(sells));
+      localStorage.setItem("extras", JSON.stringify(extras));
+      localStorage.setItem("history", JSON.stringify(history));
+    }
+
+    function render() {
+      document.getElementById("buyList").innerHTML = buys.map(b => `<li>${b.item}: ${b.amount} جنيه</li>`).join("");
+      document.getElementById("sellList").innerHTML = sells.map(s => `<li>${s.item}: ${s.amount} جنيه</li>`).join("");
+      document.getElementById("extraList").innerHTML = extras.map(e => `<li>${e.item}: ${e.amount}</li>`).join("");
+    }
+
+    function addBuy() {
+      let item = document.getElementById("buyItem").value;
+      let amount = parseFloat(document.getElementById("buyAmount").value);
+      if(item && amount) {
+        buys.push({item, amount});
+        saveData(); render();
+      }
+    }
+
+    function addSell() {
+      let item = document.getElementById("sellItem").value;
+      let amount = parseFloat(document.getElementById("sellAmount").value);
+      if(item && amount) {
+        sells.push({item, amount});
+        saveData(); render();
+      }
+    }
+
+    function addExtra() {
+      let item = document.getElementById("extraItem").value;
+      let amount = parseFloat(document.getElementById("extraAmount").value);
+      if(item && amount) {
+        extras.push({item, amount});
+        saveData(); render();
+      }
+    }
+
+    function endDay() {
+      let totalBuy = buys.reduce((sum,b)=>sum+b.amount,0);
+      let totalSell = sells.reduce((sum,s)=>sum+s.amount,0);
+      let profit = totalSell - totalBuy;
+      let date = new Date();
+      let today = date.toISOString().split('T')[0];
+
+      history.push({
+        date: today,
+        buy: totalBuy,
+        sell: totalSell,
+        profit: profit,
+        extras: extras
+      });
+
+      document.getElementById("result").innerHTML = `
+        <div class="result ${profit < 0 ? 'loss':''}">
+          <h3>📅 ملخص اليوم (${today})</h3>
+          <p>إجمالي المشتريات: ${totalBuy} جنيه</p>
+          <p>إجمالي المبيعات: ${totalSell} جنيه</p>
+          <p><b>${profit >= 0 ? "ربح" : "خسارة"}: ${profit} جنيه</b></p>
+        </div>
+      `;
+
+      buys = []; sells = []; extras = [];
+      saveData(); render();
+    }
+
+    function generateMonthlyReport() {
+      let now = new Date();
+      let month = now.getMonth();
+      let year = now.getFullYear();
+      let monthly = history.filter(h => {
+        let d = new Date(h.date);
+        return d.getMonth() === month && d.getFullYear() === year;
+      });
+
+      let totalBuy = monthly.reduce((s,h)=>s+h.buy,0);
+      let totalSell = monthly.reduce((s,h)=>s+h.sell,0);
+      let totalProfit = monthly.reduce((s,h)=>s+h.profit,0);
+
+      document.getElementById("monthlyReport").innerHTML = `
+        <div class="result ${totalProfit < 0 ? 'loss':''}">
+          <p>إجمالي المشتريات (الشهر): ${totalBuy} جنيه</p>
+          <p>إجمالي المبيعات (الشهر): ${totalSell} جنيه</p>
+          <p><b>${totalProfit >= 0 ? "ربح" : "خسارة"}: ${totalProfit} جنيه</b></p>
+        </div>
+      `;
+    }
+
+    function generateYearlyReport() {
+      let now = new Date();
+      let year = now.getFullYear();
+      let yearly = history.filter(h => {
+        let d = new Date(h.date);
+        return d.getFullYear() === year;
+      });
+
+      let totalBuy = yearly.reduce((s,h)=>s+h.buy,0);
+      let totalSell = yearly.reduce((s,h)=>s+h.sell,0);
+      let totalProfit = yearly.reduce((s,h)=>s+h.profit,0);
+
+      document.getElementById("yearlyReport").innerHTML = `
+        <div class="result ${totalProfit < 0 ? 'loss':''}">
+          <p>إجمالي المشتريات (السنة): ${totalBuy} جنيه</p>
+          <p>إجمالي المبيعات (السنة): ${totalSell} جنيه</p>
+          <p><b>${totalProfit >= 0 ? "ربح" : "خسارة"}: ${totalProfit} جنيه</b></p>
+        </div>
+      `;
+    }
+
+    render();
+  </script>
+</body>
+</html>
